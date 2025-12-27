@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Visor GIS Moderno</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Leaflet-Geoman -->
+<link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.13.0/dist/leaflet-geoman.css">
+<script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.13.0/dist/leaflet-geoman.min.js"></script>
+
+<!-- PROJ4 para convertir UTM ↔ WGS84 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.js"></script>
+
+<style>
+    body { margin:0; font-family: 'Segoe UI', sans-serif; background:#f5f6fa; }
+    #map { width:100vw; height:100vh; }
+
+    /* PANEL SUPERIOR */
+    #panel {
+        position: fixed;
+        top: 15px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffffdd;
+        padding: 10px 14px;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 1000;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        backdrop-filter: blur(6px);
+    }
+
+    #buscador {
+        padding: 7px;
+        width: 200px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+    }
+
+    .btn {
+        padding: 7px 10px;
+        border-radius: 8px;
+        border: none;
+        background: #4a90e2;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+        transition: 0.2s;
+    }
+    .btn:hover { background:#357ABD; }
+
+    /* LISTA LATERAL */
+    #listaPuntos {
+        position: fixed;
+        right: 10px;
+        top: 80px;
+        width: 80px;
+        height: 70vh;
+        background: #ffffffdd;
+        border-radius: 12px;
+        padding: 10px;
+        overflow-y: auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        backdrop-filter: blur(6px);
+        z-index: 900;
+    }
+
+    .puntoItem {
+        background: #e8f0fe;
+        padding: 5px 7px;
+        border-radius: 8px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: 0.2s;
+        font-size: 13px;
+    }
+    .puntoItem:hover { background:#d0e0ff; }
+
+    /* PANEL INFERIOR */
+    #panelCoords {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffffdd;
+        padding: 8px 12px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        backdrop-filter: blur(6px);
+        z-index: 1000;
+    }
+
+    #coordInput {
+        padding: 6px;
+        width: 160px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+    }
+
+    /* COORDENADAS EN TIEMPO REAL */
+    #mouseCoords {
+        position: fixed;
+        bottom: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffffdd;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        backdrop-filter: blur(6px);
+        z-index: 900;
+        pointer-events: none;
+    }
+
+    /* CURSOR DE AÑADIR PUNTO */
+    .cursor-add {
+        cursor: crosshair !important;
+    }
+</style>
+</head>
+
+<body>
+
+<!-- PANEL SUPERIOR -->
+<div id="panel">
+    <input id="buscador" type="text" placeholder="Buscar municipio...">
+    <button id="btnBuscar" class="btn">🔍</button>
+    <button id="btnAdd" class="btn">Añadir</button>
+    <button id="btnExportar" class="btn">Exportar</button>
+    <button id="btnCargar" class="btn">Cargar</button>
+    <input type="file" id="fileInput" accept=".geojson,.json" style="display:none;">
+</div>
+
+<!-- LISTA DE PUNTOS -->
+<div id="listaPuntos"><b>Puntos</b><hr></div>
+
+<!-- PANEL INFERIOR -->
+<div id="panelCoords">
+    <input id="coordInput" type="text" placeholder="Lat, Lon / UTM">
+    <button id="btnCoord" class="btn">Ir</button>
+    <button id="btnCopy" class="btn">📋</button>
+</div>
+
+<div id="mouseCoords"></div>
+<div id="map"></div>
+
+<script>
+/* -----------------------------------------
+   VARIABLES GLOBALES
+----------------------------------------- */
+let map, markerGPS = null;
+let modoAdd = false;
+let puntos = [];
+
+/* -----------------------------------------
+   PROJ4 CONFIG (UTM 30N → WGS84)
+----------------------------------------- */
+proj4.defs("EPSG:25830","+proj=utm +zone=30 +ellps=GRS80 +units=m +no_defs");
+
+/* -----------------------------------------
+   INICIALIZAR MAPA
+----------------------------------------- */
+map = L.map("map").setView([42.8, -1.6], 8);
+
+const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap"
+});
+
+const esri = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    { attribution: "Tiles © Esri" }
+).addTo(map);
+
+L.control.layers(
+    { "Ortofoto (Esri)": esri, "OpenStreetMap": osm },
+    {}
+).addTo(map);
+
+L.control.scale({ imperial:false }).addTo(map);
+
+/* -----------------------------------------
+   MEDICIÓN DE DISTANCIAS
+----------------------------------------- */
+map.pm.addControls({
+    position: 'topleft',
+    drawMarker: false,
+    drawCircle: false,
+    drawPolygon: false,
+    drawRectangle: false,
+    drawCircleMarker: false,
+    drawPolyline: true,
+    editMode: false,
+    dragMode: false,
+    cutPolygon: false,
+    removalMode: true
+});
+
+map.on('pm:create', e => {
+    if (e.shape === "Line") {
+        const layer = e.layer;
+        const latlngs = layer.getLatLngs();
+
+        let distancia = 0;
+        for (let i = 1; i < latlngs.length; i++) {
+            distancia += latlngs[i - 1].distanceTo(latlngs[i]);
+        }
+
+        layer.bindPopup(`Distancia: ${(distancia/1000).toFixed(2)} km`).openPopup();
+    }
+});
+
+/* -----------------------------------------
+   BUSCADOR MUNICIPIOS
+----------------------------------------- */
+function buscarMunicipio() {
+    const q = document.getElementById("buscador").value.trim();
+    if (!q) return;
+
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ", España")}&limit=1`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.length === 0) return alert("No encontrado");
+
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+
+            map.setView([lat, lon], 13);
+            L.marker([lat, lon]).addTo(map).bindPopup(data[0].display_name).openPopup();
+        });
+}
+
+document.getElementById("btnBuscar").addEventListener("click", buscarMunicipio);
+document.getElementById("buscador").addEventListener("keypress", e => {
+    if (e.key === "Enter") buscarMunicipio();
+});
+
+/* -----------------------------------------
+   GEOLOCALIZACIÓN EN TIEMPO REAL
+----------------------------------------- */
+if ("geolocation" in navigator) {
+    navigator.geolocation.watchPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        if (!markerGPS) {
+            const icono = L.icon({
+                iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+            });
+
+            markerGPS = L.marker([lat, lon], { icon: icono })
+                .addTo(map)
+                .bindPopup("Mi posición");
+        } else {
+            markerGPS.setLatLng([lat, lon]);
+        }
+
+    }, err => {
+        console.warn("Error GPS:", err);
+    }, {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 5000
+    });
+}
+
+/* -----------------------------------------
+   AÑADIR LOCALIZACIÓN
+----------------------------------------- */
+document.getElementById("btnAdd").addEventListener("click", () => {
+    modoAdd = true;
+    map.getContainer().classList.add("cursor-add");
+});
+
+map.on("click", e => {
+    if (!modoAdd) return;
+
+    modoAdd = false;
+    map.getContainer().classList.remove("cursor-add");
+
+    const nombre = prompt("Nombre del punto:");
+    if (!nombre) return;
+
+    const feature = {
+        type: "Feature",
+        properties: { nombre },
+        geometry: {
+            type: "Point",
+            coordinates: [e.latlng.lng, e.latlng.lat]
+        }
+    };
+
+    puntos.push(feature);
+    agregarPuntoLista(feature);
+
+    L.marker([e.latlng.lat, e.latlng.lng])
+        .addTo(map)
+        .bindPopup(`<b>${nombre}</b><br><small>X: ${e.latlng.lng.toFixed(6)}<br>Y: ${e.latlng.lat.toFixed(6)}</small>`);
+});
+
+/* -----------------------------------------
+   LISTA LATERAL
+----------------------------------------- */
+function agregarPuntoLista(f) {
+    const div = document.createElement("div");
+    div.className = "puntoItem";
+    div.textContent = f.properties.nombre;
+
+    div.onclick = () => {
+        const [lon, lat] = f.geometry.coordinates;
+        map.setView([lat, lon], 15);
+    };
+
+    document.getElementById("listaPuntos").appendChild(div);
+}
+
+/* -----------------------------------------
+   EXPORTAR GEOJSON
+----------------------------------------- */
+document.getElementById("btnExportar").addEventListener("click", () => {
+    const nombre = prompt("Nombre del archivo GeoJSON:");
+    if (!nombre) return;
+
+    const geojson = {
+        type: "FeatureCollection",
+        features: puntos
+    };
+
+    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre + ".geojson";
+    a.click();
+
+    URL.revokeObjectURL(url);
+});
+
+/* -----------------------------------------
+   CARGAR GEOJSON
+----------------------------------------- */
+document.getElementById("btnCargar").addEventListener("click", () => {
+    document.getElementById("fileInput").click();
+});
+
+document.getElementById("fileInput").addEventListener("change", function() {
+    const file = this.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const geojson = JSON.parse(e.target.result);
+
+        geojson.features.forEach(f => {
+            puntos.push(f);
+            agregarPuntoLista(f);
+
+            const [lon, lat] = f.geometry.coordinates;
+            L.marker([lat, lon])
+                .addTo(map)
+                .bindPopup(`<b>${f.properties.nombre}</b><br><small>X: ${lon.toFixed(6)}<br>Y: ${lat.toFixed(6)}</small>`);
+        });
+    };
+
+    reader.readAsText(file);
+});
+
+/* -----------------------------------------
+   BUSCADOR POR COORDENADAS (Lat/Lon + UTM)
+----------------------------------------- */
+function irACoordenadas() {
+    const txt = document.getElementById("coordInput").value.trim();
+    if (!txt) return;
+
+    // Detectar si es UTM (dos números grandes)
+    const limpio = txt.replace(",", " ");
+    const partes = limpio.split(" ").filter(x => x !== "");
+
+    if (partes.length === 2) {
+        let a = parseFloat(partes[0]);
+        let b = parseFloat(partes[1]);
+
+        // UTM típico: X ~ 500000, Y ~ 4700000
+        if (a > 100000 && b > 1000000) {
+            const [lon, lat] = proj4("EPSG:25830", "EPSG:4326", [a, b]);
+            moverA(lat, lon);
+            return;
+        }
+
+        // Lat/Lon normal
+        if (!isNaN(a) && !isNaN(b)) {
+            moverA(a, b);
+            return;
+        }
+    }
+
+    alert("Formato incorrecto. Usa: lat lon o UTM X Y");
+}
+
+function moverA(lat, lon) {
+    map.setView([lat, lon], 15);
+    L.marker([lat, lon]).addTo(map)
+        .bindPopup(`<b>Coordenadas</b><br><small>X: ${lon.toFixed(6)}<br>Y: ${lat.toFixed(6)}</small>`)
+        .openPopup();
+}
+
+document.getElementById("btnCoord").addEventListener("click", irACoordenadas);
+document.getElementById("coordInput").addEventListener("keypress", e => {
+    if (e.key === "Enter") irACoordenadas();
+});
+
+/* -----------------------------------------
+   COPIAR COORDENADAS
+----------------------------------------- */
+document.getElementById("btnCopy").addEventListener("click", () => {
+    const txt = document.getElementById("mouseCoords").innerText;
+    navigator.clipboard.writeText(txt);
+});
+
+/* -----------------------------------------
+   COORDENADAS EN TIEMPO REAL
+----------------------------------------- */
+map.on("mousemove", e => {
+    document.getElementById("mouseCoords").innerHTML =
+        `X: ${e.latlng.lng.toFixed(6)} &nbsp;&nbsp; Y: ${e.latlng.lat.toFixed(6)}`;
+});
+</script>
+
+</body>
+</html>
+
+
+
