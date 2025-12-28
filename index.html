@@ -2,6 +2,8 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Geolocalizador</title>
 
 <!-- Leaflet -->
@@ -56,21 +58,29 @@
     }
     .btn:hover { background:#357ABD; }
 
-    /* LISTA LATERAL */
+    /* PANEL LATERAL DESPLEGABLE (ESCRITORIO) */
     #listaPuntos {
         position: fixed;
-        right: 10px;
-        top: 80px;
-        width: 80px;
-        height: 70vh;
+        top: 20%;
+        right: -200px;        /* ← OCULTO FUERA DE LA PANTALLA */
+        width: 200px;
+        height: 60vh;
         background: #ffffffdd;
-        border-radius: 12px;
+        border-left: 1px solid #ccc;
         padding: 10px;
         overflow-y: auto;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: -4px 0 12px rgba(0,0,0,0.15);
         backdrop-filter: blur(6px);
-        z-index: 900;
+        z-index: 2000;
+        transition: right 0.3s ease;   /* ← ANIMACIÓN */
     }
+
+    /* CUANDO ESTÁ ABIERTO */
+    #listaPuntos.abierto {
+        right: 0;
+    }
+
+
 
     .puntoItem {
         background: #e8f0fe;
@@ -114,11 +124,11 @@
         bottom: 70px;
         left: 50%;
         transform: translateX(-50%);
-        background: #ffffffdd;
+        background: rgba(255, 255, 255, 0.65);
         padding: 6px 10px;
         border-radius: 8px;
         font-size: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.40);
         backdrop-filter: blur(6px);
         z-index: 900;
         pointer-events: none;
@@ -128,6 +138,141 @@
     .cursor-add {
         cursor: crosshair !important;
     }
+
+@media (max-width: 600px) {
+
+    /* PANEL SUPERIOR MÁS PEQUEÑO */
+    #panel {
+        top: 10px;
+        width: auto;
+        max-width: 80%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 8px;
+        gap: 4px;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: 80%;
+    }
+
+    #buscador {
+        width: 100%;
+        font-size: 80%;
+        padding: 8px;
+    }
+
+    .btn {
+        flex: 1;
+        min-width: 70px;
+        font-size: 80%;
+        padding: 8px 10px;
+    }
+
+    /* PANEL DE PUNTOS — MODO MÓVIL */
+    #listaPuntos {
+        position: fixed;
+        bottom: -300px;          /* oculto inicialmente */
+        left: 0;
+        width: 100%;
+        background: #ffffffdd;
+        border-top: 1px solid #ccc;
+        padding: 10px 14px;
+
+        /* ALTURA AUTOMÁTICA */
+        height: auto;
+        max-height: 40vh;        /* límite para no ocupar toda la pantalla */
+
+        overflow-y: auto;        /* scroll vertical si hace falta */
+        overflow-x: hidden;
+
+        display: block;          /* ← texto fluido, no lista */
+        box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+        transition: bottom 0.3s ease;
+        z-index: 2000;
+        font-size: 80%;
+        line-height: 1.4;
+
+        top: auto !important;    /* ← evita que se vaya arriba */
+    }
+
+    /* CUANDO SE DESPLIEGA */
+    #listaPuntos.abierto {
+        bottom: 60px;            /* justo encima del panel inferior */
+    }
+
+    /* LOS ITEMS SE COMPORTAN COMO TEXTO */
+    .puntoItem {
+        display: inline;         /* texto corrido */
+        margin-right: 8px;       /* separación */
+        white-space: nowrap;     /* evita saltos dentro del nombre */
+        background: none;
+        padding: 0;
+        font-size: 80%;
+    }
+
+
+/* PANEL INFERIOR — MISMA ESTRATEGIA QUE EL SUPERIOR */
+#panelCoords {
+    position: fixed;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    max-width: 80%;
+    padding: 6px 8px;
+    gap: 4px;
+
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+
+    font-size: 80%;
+    background: #ffffffdd;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    border-radius: 6px;
+}
+
+/* Coordenadas en tiempo real — SIEMPRE ARRIBA Y OCUPA TODA LA FILA */
+#mouseCoords {
+    order: 0;               /* ← siempre primero */
+    width: 100%;            /* ← ocupa toda la fila */
+    text-align: center;
+    font-size: 80%;
+    padding: 4px 0;
+    background: rgba(255, 255, 255, 0.65);
+}
+
+/* Selector + inputs — Fila 1 */
+#panelCoords select,
+#panelCoords input {
+    order: 1;               /* ← fila 1 */
+    flex: 1;
+    min-width: 20%;
+    font-size: 80%;
+    padding: 4px;
+}
+
+/* Botones — Fila 2 */
+#panelCoords .btn {
+    order: 2;               /* ← fila 2 */
+    flex: 1;
+    min-width: 70px;
+    font-size: 80%;
+    padding: 8px 10px;
+}
+
+
+
+
+
+
+}
+
+
+
+
+
 </style>
 </head>
 
@@ -146,14 +291,26 @@
 <!-- LISTA DE PUNTOS -->
 <div id="listaPuntos"><b>Puntos</b><hr></div>
 
+
+
+
 <!-- PANEL INFERIOR -->
 <div id="panelCoords">
-    <input id="coordInput" type="text" placeholder="Lat, Lon / UTM">
+    <div id="mouseCoords"></div>
+    <select id="tipoCoord">
+        <option value="latlon">Lat / Lon</option>
+        <option value="utm">UTM (X / Y)</option>
+    </select>
+
+    <input id="coord1" type="text" placeholder="Lat">
+    <input id="coord2" type="text" placeholder="Lon">
+
     <button id="btnCoord" class="btn">Ir</button>
     <button id="btnCopy" class="btn">📋</button>
 </div>
 
-<div id="mouseCoords"></div>
+
+
 <div id="map"></div>
 
 <script>
@@ -379,37 +536,48 @@ document.getElementById("fileInput").addEventListener("change", function() {
     reader.readAsText(file);
 });
 
+
+
+/* -----------------------------------------
+   MODO GEOGRÁFICO O PROYECTADO
+----------------------------------------- */
+const tipoCoord = document.getElementById("tipoCoord");
+const coord1 = document.getElementById("coord1");
+const coord2 = document.getElementById("coord2");
+
+tipoCoord.addEventListener("change", () => {
+    if (tipoCoord.value === "latlon") {
+        coord1.placeholder = "Latitud";
+        coord2.placeholder = "Longitud";
+    } else {
+        coord1.placeholder = "UTM X";
+        coord2.placeholder = "UTM Y";
+    }
+});
+
+
+
+
 /* -----------------------------------------
    BUSCADOR POR COORDENADAS (Lat/Lon + UTM)
 ----------------------------------------- */
 function irACoordenadas() {
-    const txt = document.getElementById("coordInput").value.trim();
-    if (!txt) return;
+    const a = parseFloat(coord1.value.trim());
+    const b = parseFloat(coord2.value.trim());
 
-    // Detectar si es UTM (dos números grandes)
-    const limpio = txt.replace(",", " ");
-    const partes = limpio.split(" ").filter(x => x !== "");
-
-    if (partes.length === 2) {
-        let a = parseFloat(partes[0]);
-        let b = parseFloat(partes[1]);
-
-        // UTM típico: X ~ 500000, Y ~ 4700000
-        if (a > 100000 && b > 1000000) {
-            const [lon, lat] = proj4("EPSG:25830", "EPSG:4326", [a, b]);
-            moverA(lat, lon);
-            return;
-        }
-
-        // Lat/Lon normal
-        if (!isNaN(a) && !isNaN(b)) {
-            moverA(a, b);
-            return;
-        }
+    if (isNaN(a) || isNaN(b)) {
+        alert("Introduce valores numéricos válidos.");
+        return;
     }
 
-    alert("Formato incorrecto. Usa: lat lon o UTM X Y");
+    if (tipoCoord.value === "utm") {
+        const [lon, lat] = proj4("EPSG:25830", "EPSG:4326", [a, b]);
+        mostrarPunto(lat, lon, "UTM (EPSG:25830)");
+    } else {
+        mostrarPunto(a, b, "Geográficas (WGS84)");
+    }
 }
+
 
 function moverA(lat, lon) {
     map.setView([lat, lon], 15);
@@ -419,17 +587,56 @@ function moverA(lat, lon) {
 }
 
 document.getElementById("btnCoord").addEventListener("click", irACoordenadas);
-document.getElementById("coordInput").addEventListener("keypress", e => {
+coord1.addEventListener("keypress", e => {
     if (e.key === "Enter") irACoordenadas();
 });
+coord2.addEventListener("keypress", e => {
+    if (e.key === "Enter") irACoordenadas();
+});
+
+
+
 
 /* -----------------------------------------
    COPIAR COORDENADAS
 ----------------------------------------- */
+map.on("click", e => {
+    ultimaCoordenada = { lat: e.latlng.lat, lon: e.latlng.lng };
+});
+
+
+
+function mostrarPunto(lat, lon, tipo) {
+    ultimaCoordenada = { lat, lon };  // ← GUARDAR SIEMPRE
+
+    map.setView([lat, lon], 15);
+
+    L.marker([lat, lon]).addTo(map)
+        .bindPopup(`
+            <b>Coordenadas detectadas</b><br>
+            <small>
+                Tipo: ${tipo}<br>
+                Lat: ${lat.toFixed(6)}<br>
+                Lon: ${lon.toFixed(6)}
+            </small>
+        `)
+        .openPopup();
+}
+
+
+
 document.getElementById("btnCopy").addEventListener("click", () => {
-    const txt = document.getElementById("mouseCoords").innerText;
+    if (!ultimaCoordenada) {
+        alert("No hay ninguna coordenada seleccionada.");
+        return;
+    }
+
+    const txt = `Lat: ${ultimaCoordenada.lat.toFixed(6)}, Lon: ${ultimaCoordenada.lon.toFixed(6)}`;
     navigator.clipboard.writeText(txt);
 });
+
+
+
 
 /* -----------------------------------------
    COORDENADAS EN TIEMPO REAL
@@ -438,6 +645,27 @@ map.on("mousemove", e => {
     document.getElementById("mouseCoords").innerHTML =
         `X: ${e.latlng.lng.toFixed(6)} &nbsp;&nbsp; Y: ${e.latlng.lat.toFixed(6)}`;
 });
+
+
+
+const lista = document.getElementById("listaPuntos");
+
+document.addEventListener("click", (e) => {
+    // Si haces clic en el panel → no cerrar
+    if (lista.contains(e.target)) return;
+
+    // Si haces clic en un punto del mapa → abrir
+    if (e.target.id === "map") {
+        lista.classList.toggle("abierto");
+        return;
+    }
+
+    // Si haces clic fuera → cerrar
+    lista.classList.remove("abierto");
+});
+
+
+
 </script>
 
 </body>
