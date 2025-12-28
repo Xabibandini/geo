@@ -171,8 +171,6 @@
 
 
 
-
-
 /* PANEL INFERIOR — MISMA ESTRATEGIA QUE EL SUPERIOR */
 #panelCoords {
     position: fixed;
@@ -613,11 +611,9 @@ map.on("mousemove", e => {
 const lista = document.getElementById("listaPuntos");
 
 document.addEventListener("click", (e) => {
-    // Si haces clic en el panel → no cerrar
-    if (lista.contains(e.target)) return;
 
-    // Si haces clic en un punto del mapa → abrir
-    if (e.target.id === "map") {
+    // Si haces clic dentro de la lista → abrir/cerrar
+    if (lista.contains(e.target)) {
         lista.classList.toggle("abierto");
         return;
     }
@@ -628,10 +624,13 @@ document.addEventListener("click", (e) => {
 
 
 
+
+
 </script>
 
 </body>
 </html>
+
 
 
 
