@@ -168,47 +168,9 @@
         padding: 8px 10px;
     }
 
-    /* PANEL DE PUNTOS — MODO MÓVIL */
-    #listaPuntos {
-        position: fixed;
-        bottom: -300px;          /* oculto inicialmente */
-        left: 0;
-        width: 100%;
-        background: #ffffffdd;
-        border-top: 1px solid #ccc;
-        padding: 10px 14px;
 
-        /* ALTURA AUTOMÁTICA */
-        height: auto;
-        max-height: 40vh;        /* límite para no ocupar toda la pantalla */
 
-        overflow-y: auto;        /* scroll vertical si hace falta */
-        overflow-x: hidden;
 
-        display: block;          /* ← texto fluido, no lista */
-        box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
-        transition: bottom 0.3s ease;
-        z-index: 2000;
-        font-size: 80%;
-        line-height: 1.4;
-
-        top: auto !important;    /* ← evita que se vaya arriba */
-    }
-
-    /* CUANDO SE DESPLIEGA */
-    #listaPuntos.abierto {
-        bottom: 60px;            /* justo encima del panel inferior */
-    }
-
-    /* LOS ITEMS SE COMPORTAN COMO TEXTO */
-    .puntoItem {
-        display: inline;         /* texto corrido */
-        margin-right: 8px;       /* separación */
-        white-space: nowrap;     /* evita saltos dentro del nombre */
-        background: none;
-        padding: 0;
-        font-size: 80%;
-    }
 
 
 /* PANEL INFERIOR — MISMA ESTRATEGIA QUE EL SUPERIOR */
@@ -670,6 +632,7 @@ document.addEventListener("click", (e) => {
 
 </body>
 </html>
+
 
 
 
