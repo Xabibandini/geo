@@ -222,12 +222,35 @@
     font-size: 80%;
     padding: 8px 10px;
 }
-
-
-
-
 }
 
+#btnLimpiar {
+    position: fixed;
+    bottom: 30px;
+    left: 20px;
+    width: 42px;
+    height: 42px;
+    background: rgba(255, 255, 255, 0.10); /* Transparente */
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    backdrop-filter: blur(4px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+#btnLimpiar:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.05);
+}
+
+#btnLimpiar svg {
+    width: 22px;
+    height: 22px;
+}
 
 
 </style>
@@ -271,6 +294,13 @@
     <button id="btnCopy" class="btn">📋</button>
 </div>
 
+<button id="btnLimpiar" title="Limpiar todo">
+    <svg viewBox="0 0 24 24">
+        <path d="M3 6h18M8 6V4h8v2m-9 4v10m5-10v10m5-10v10" 
+              stroke="white" stroke-width="2" fill="none" 
+              stroke-linecap="round"/>
+    </svg>
+</button>
 
 
 <div id="map"></div>
@@ -329,9 +359,20 @@ map.pm.addControls({
 map.on('pm:create', e => {
     if (e.shape === "Line") {
         const layer = e.layer;
-        const latlngs = layer.getLatLngs();
 
+        // AUMENTAR ÁREA TÁCTIL PARA MÓVIL
+        layer.setStyle({
+            weight: 4,          // grosor visible
+            interactive: true,
+            smoothFactor: 1,
+            bubblingMouseEvents: true,
+            pane: 'overlayPane',
+            touchExtend: 20     // ← buffer táctil
+        });
+
+        const latlngs = layer.getLatLngs();
         let distancia = 0;
+
         for (let i = 1; i < latlngs.length; i++) {
             distancia += latlngs[i - 1].distanceTo(latlngs[i]);
         }
@@ -339,12 +380,14 @@ map.on('pm:create', e => {
         layer.bindPopup(`Distancia: ${(distancia/1000).toFixed(2)} km`).openPopup();
     }
 });
+
 map.on('popupclose', e => {
     const layer = e.popup._source;  // la línea que tenía el popup
     if (layer && map.hasLayer(layer)) {
         map.removeLayer(layer);
     }
 });
+
 /* -----------------------------------------
    BUSCADOR MUNICIPIOS
 ----------------------------------------- */
@@ -630,13 +673,30 @@ document.addEventListener("click", (e) => {
 });
 
 
+// LIMPIAR TODO
+document.getElementById("btnLimpiar").addEventListener("click", () => {
 
+    map.closePopup();
+
+    map.eachLayer(layer => {
+        if (layer.pm && layer.pm.enabled()) return;
+        if (layer instanceof L.Polyline || layer instanceof L.Marker || layer instanceof L.Polygon) {
+            map.removeLayer(layer);
+        }
+    });
+
+    if (Array.isArray(puntos)) {
+        puntos.length = 0;
+    }
+});
 
 
 </script>
 
 </body>
 </html>
+
+
 
 
 
