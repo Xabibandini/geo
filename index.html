@@ -339,7 +339,12 @@ map.on('pm:create', e => {
         layer.bindPopup(`Distancia: ${(distancia/1000).toFixed(2)} km`).openPopup();
     }
 });
-
+map.on('popupclose', e => {
+    const layer = e.popup._source;  // la línea que tenía el popup
+    if (layer && map.hasLayer(layer)) {
+        map.removeLayer(layer);
+    }
+});
 /* -----------------------------------------
    BUSCADOR MUNICIPIOS
 ----------------------------------------- */
@@ -632,6 +637,7 @@ document.addEventListener("click", (e) => {
 
 </body>
 </html>
+
 
 
 
