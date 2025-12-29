@@ -679,25 +679,33 @@ document.getElementById("btnLimpiar").addEventListener("click", () => {
     map.closePopup();
 
     map.eachLayer(layer => {
+        // No tocar controles PM
         if (layer.pm && layer.pm.enabled()) return;
+
+        // No borrar el marker de GPS
+        if (layer === markerGPS) return;
+
+        // Borrar líneas, markers y polígonos creados por el usuario
         if (layer instanceof L.Polyline || layer instanceof L.Marker || layer instanceof L.Polygon) {
             map.removeLayer(layer);
         }
     });
 
+    // Vaciar array de puntos
     if (Array.isArray(puntos)) {
         puntos.length = 0;
     }
+
+    // ❗ Borrar solo los puntos añadidos, NO el icono ni el <hr>
+    document.querySelectorAll("#listaPuntos .puntoItem").forEach(el => el.remove());
 });
+
 
 
 </script>
 
 </body>
 </html>
-
-
-
 
 
 
